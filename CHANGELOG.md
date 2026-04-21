@@ -1,192 +1,67 @@
-Changelog
-
-agents.py
-
-ArticleSummary dataclass — simplified
-
-Removed deprecated fields (key\_points, why\_this\_matters, technical\_specs, industry\_impact). The dataclass now has three fields: article\_id, summary, and suggested\_subject.
-
-Collector — category-specific Tavily queries
-
-Each active category now has a dedicated search query instead of a generic fallback. Queries are written to target the right kind of content per category and explicitly exclude content that belongs in other categories.
-
-Collector — category-specific search parameters
-
-ai\_research and ai\_research\_arxiv use topic: "news" to bias toward recent publications. ai\_research\_arxiv additionally pins results to arxiv.org via include\_domains. genai\_tips uses topic: "general" since quality practitioner content is not always breaking news. ai\_trends and ai\_innovations use topic: "news".
-
-New category: ai\_research\_arxiv
-
-Locks collection entirely to arXiv at every layer — Tavily include\_domains, deep research ARXIV\_ONLY\_FEEDS, a hard URL filter removing any non-arXiv entry that slips through, and an evaluator rule that rejects immediately if the URL does not contain arxiv.org.
-
-Category consolidation
-
-
-
-ai\_technology absorbed into ai\_innovations
-
-tools\_updates absorbed into ai\_trends
-
-policy\_ethics removed entirely
-
-Active categories: ai\_trends, genai\_tips, ai\_innovations, ai\_research, ai\_research\_arxiv
-
-
-
-Quality evaluator — per-category guidance rewritten
-
-Each category now has precise accept/reject criteria tailored to its purpose and audience:
-
-
-
-ai\_innovations: two equal pillars — capability breakthroughs and major industry releases, both scored on concrete technical detail
-
-ai\_trends: requires evidence of genuine traction (adoption data, multiple organisations, widespread coverage); rejects single-company announcements
-
-genai\_tips: calibrated for data scientists and AI practitioners; rejects beginner/consumer-facing content
-
-ai\_research: accepts only publications and preprints; rejects all product and company news
-
-ai\_research\_arxiv: rejects anything whose URL is not from arxiv.org
-
-
-
-Summarizer — research-aware branching
-
-ai\_research and ai\_research\_arxiv use a dedicated prompt that prescribes sentence structure (problem + method in sentence 1; concrete result or implication with numbers in sentence 2), preserves technical terms that carry meaning, and bans filler openers. General categories use a plain-English prompt focused on what happened and why it matters.
-
-Composer — assembly only
-
-Temperature lowered from 0.4 to 0.2. The prompt explicitly instructs the model to copy headlines and summaries verbatim and not rewrite them. The composer's role is layout and structure, not creative rewriting.
-
-Standardizer — trim-only pass
-
-Now explicitly forbidden from adding words or expanding summaries. Has a prioritised trim checklist: filler openers first, then redundant qualifiers, then wordy phrases, then as a last resort shortening a summary sentence. Temperature lowered to 0.1.
-
-New function: generate\_digest\_headline()
-
-Given the final list of composer items, generates a single teaser sentence that previews all stories without repeating any headline verbatim. Used as the masthead tagline in the HTML output.
-
-
-
-pipeline.py
-
-Parallel quality evaluation
-
-All articles within a category are now evaluated by the Quality Agent concurrently using ThreadPoolExecutor(max\_workers=5). Previously sequential.
-
-Parallel summarisation
-
-All accepted articles are summarised concurrently under the same 5-worker cap. Previously sequential.
-
-Parallel image collection
-
-Images for all selected articles are fetched simultaneously instead of one at a time. For 3 articles this reduces image collection from \~30s to \~10s.
-
-Parallel \_collect\_both
-
-When collector\_type = "both", Tavily and Deep Research now run simultaneously in a 2-worker pool instead of sequentially.
-
-max\_pool parameter
-
-run\_collection\_pipeline accepts a max\_pool argument that controls how many articles are passed to the quality evaluator independently of --max-results. Exposed via --max-pool on the CLI.
-
-Quota exhaustion handler
-
-\_is\_quota\_exhausted() detects OpenAI insufficient\_quota errors and stops the pipeline immediately with a clear message pointing to the billing page, instead of silently logging a per-article error and continuing.
-
-HTML output
-
-After every compose run, a self-contained .html file is written to output/ alongside the existing .md file. Images are embedded as base64 strings so the file is fully portable. Generated via render\_newsletter\_html() in formatter.py and saved via save\_newsletter\_html() in storage.py.
-
-Story deduplication
-
-\_deduplicate\_by\_story() runs after quality sorting and before the final \[:max\_items] slice. Uses two independent signals:
-
-
-
-Named entity overlap (primary, threshold 0.45) — extracts capitalised tokens and bigrams; catches the same story covered from different angles (e.g. three articles about the same model launch written from safety, capability, and business perspectives all share the same company and product names)
-
-Text similarity (secondary, threshold 0.38) — combined title + summary word fingerprint; backstop for near-identical rewrites
-
-Research categories (ai\_research, ai\_research\_arxiv) skip the entity signal and use text similarity only, since all papers share arxiv as an entity which would cause false positives across different papers.
-
-
-
-generate\_digest\_headline wired in
-
-Called after the standardizer with the final composer\_items list. Result passed to render\_newsletter\_html() as digest\_headline.
-
-
-
-deep\_research.py
-
-Parallel RSS feed fetching
-
-All 30+ feeds are now fetched simultaneously using ThreadPoolExecutor(max\_workers=20). Previously sequential. Worst-case time drops from \~750s to \~25s. Feed order is preserved in the result so deduplication remains deterministic.
-
-Expanded arXiv feeds (3 → 9)
-
-Added cs.CL (NLP/LLMs), cs.CV (Computer Vision), cs.NE (Neural Computing), cs.RO (Robotics), cs.IR (Information Retrieval / RAG), eess.SP (Signal Processing / speech AI).
-
-ARXIV\_ONLY\_FEEDS constant
-
-A dedicated feed list used exclusively when category == "ai\_research\_arxiv". Bypasses DEFAULT\_AI\_FEEDS and user-configured feeds entirely.
-
-\_sort\_arxiv\_first()
-
-New sort function used for ai\_research and ai\_research\_arxiv that places all arXiv entries (matched by arxiv.org in the URL) at the top sorted by date, followed by everything else. Prevents arXiv papers from being buried behind general tech news.
-
-Hard URL filter for ai\_research\_arxiv
-
-After keyword filtering, entries whose URL does not contain arxiv.org are removed as a final backstop before articles are passed to the evaluator.
-
-max\_results pool cap removed
-
-The previous hardcoded min(max\_results \* 2, 30) cap is gone. max\_results is now passed directly to the collector, giving the user full control via --max-results and --max-pool.
-
-CATEGORY\_KEYWORDS updated
-
-
-
-ai\_trends: expanded with tool/framework adoption signals absorbed from the removed tools\_updates category
-
-ai\_innovations: rewritten around capability and model release terms plus major lab names; previously overlapped too heavily with ai\_research keywords
-
-ai\_research\_arxiv: empty list (URL filtering handles source restriction)
-
-ai\_technology, tools\_updates, policy\_ethics: removed
-
-
-
-
-
-formatter.py (new file)
-
-Renders newsletter cards as a self-contained HTML string using a Jinja2 template. Accepts a list of card items (title, summary, url, image\_path), converts each image to base64, and passes the enriched data to the template. Also accepts an optional digest\_headline for the masthead teaser.
-
-
-
-storage.py
-
-save\_newsletter\_html() — new function that saves the rendered HTML newsletter to output/ as a self-contained .html file alongside the existing .md output.
-
-
-
-config.py
-
-Default categories updated to ai\_trends,genai\_tips,ai\_innovations,ai\_research,ai\_research\_arxiv. Removed ai\_technology, tools\_updates, and policy\_ethics.
-
-
-
-run\_pipeline.py
-
-\--max-pool argument added to both collect and collect-and-compose subcommands. Controls how many articles are passed to the quality evaluator independently of --max-results.
-
-ai\_research\_arxiv added to help text for the --category argument.
-
-
-
-ai\_digest/templates/newsletter\_card.html (new file)
-
-Email-safe Jinja2 template using table-based layout (no flexbox — stripped by Gmail/Outlook). All styles are inlined. Design: white cards with an orange top-border accent (#e85d04), orange masthead banner containing "AI Digest", the run date, and the generated teaser headline. Responsive stacking on narrow screens. Footer includes a pilot feedback section with a link to the Microsoft Forms survey.
-
+# AI Digest – Changelog
+**Prepared by:** Yvhan
+
+---
+
+## **Changelog & Technical Updates**
+
+### **`agents.py`**
+* **Simplified `ArticleSummary` Dataclass:** Removed deprecated fields (`key_points`, `why_this_matters`, `technical_specs`, `industry_impact`). The dataclass is now streamlined to three essential fields: `article_id`, `summary`, and `suggested_subject`.
+* **Category-Specific Tavily Queries:** Replaced the generic fallback with dedicated search queries for every active category. Queries are now precision-targeted and explicitly exclude cross-category content.
+* **Tailored Search Parameters:** * `ai_research` and `ai_research_arxiv` use `topic: "news"` to capture recent publications, with `ai_research_arxiv` strictly pinned to `arxiv.org` via `include_domains`. 
+    * `genai_tips` utilizes `topic: "general"` to capture quality practitioner content that isn't breaking news. 
+    * `ai_trends` and `ai_innovations` use `topic: "news"`.
+* **New Category (`ai_research_arxiv`):** Created a strictly locked category for arXiv content. This enforces arXiv exclusivity at every layer: Tavily `include_domains`, deep research `ARXIV_ONLY_FEEDS`, a hard URL filter, and an instant evaluator rejection for non-arXiv URLs.
+* **Category Consolidation:** Streamlined the active categories down to five (`ai_trends`, `genai_tips`, `ai_innovations`, `ai_research`, `ai_research_arxiv`). `ai_technology` was absorbed into `ai_innovations`, `tools_updates` into `ai_trends`, and `policy_ethics` was removed entirely.
+* **Rewritten Quality Evaluator Rules:** Implemented precise accept/reject criteria tailored to specific audiences:
+    * `ai_innovations`: Evaluates capability breakthroughs and industry releases based on concrete technical detail.
+    * `ai_trends`: Requires evidence of genuine traction (adoption data, widespread coverage); rejects single-company announcements.
+    * `genai_tips`: Calibrated for practitioners/data scientists; rejects beginner content.
+    * `ai_research`: Strictly limits to publications and preprints.
+    * `ai_research_arxiv`: Strictly rejects non-arxiv.org URLs.
+* **Research-Aware Summarizer Branching:** General categories now use a plain-English prompt focusing on impact. Research categories use a dedicated prompt that prescribes a strict sentence structure (problem + method, then concrete results/numbers), preserves technical terms, and bans filler.
+* **Strict Assembly Composer:** Lowered temperature from 0.4 to 0.2. The prompt now explicitly forbids creative rewriting, instructing the model to copy headlines and summaries verbatim and focus purely on layout and structure.
+* **Trim-Only Standardizer:** Lowered temperature to 0.1 and explicitly forbade expanding summaries. It now uses a prioritized trim checklist: cut filler openers first, redundant qualifiers second, wordy phrases third, and shorten sentences only as a last resort.
+* **Added `generate_digest_headline()`:** A new function that reads the final composer items and generates a single teaser sentence previewing all stories without verbatim repetition, used as the masthead tagline in the HTML.
+
+### **`pipeline.py`**
+* **Parallelization Sweeps:** * **Quality Evaluation:** Articles within a category are now evaluated concurrently using `ThreadPoolExecutor(max_workers=5)` instead of sequentially.
+    * **Summarization:** Accepted articles are summarized concurrently under a 5-worker pool.
+    * **Image Collection:** Images are fetched simultaneously, reducing collection time for 3 articles from ~30s down to ~10s.
+    * **Dual Collection:** When `collector_type = "both"`, Tavily and Deep Research run concurrently in a 2-worker pool.
+* **New `max_pool` Parameter:** Added an argument to `run_collection_pipeline` (exposed via `--max-pool` on the CLI) to control how many articles pass to the quality evaluator, independent of `--max-results`.
+* **Quota Exhaustion Handler:** `_is_quota_exhausted()` now catches OpenAI `insufficient_quota` errors and halts the pipeline immediately with a billing link, replacing the old behavior of silently logging errors and continuing.
+* **HTML Output Generation:** A self-contained `.html` file (with base64 embedded images) is now generated after every compose run and saved to the `output/` directory alongside the markdown file.
+* **Story Deduplication:** Added `_deduplicate_by_story()`, running right before the final `[:max_items]` slice. It utilizes a primary named entity overlap signal (0.45 threshold) to catch same-story/different-angle articles, and a secondary text similarity signal (0.38 threshold) for near-identical rewrites. Research categories skip the entity signal to avoid false positives on the "arxiv" entity.
+* **Headline Integration:** Wired `generate_digest_headline` to run after the standardizer, passing its result to the HTML renderer as `digest_headline`.
+
+### **`deep_research.py`**
+* **Parallel RSS Fetching:** All 30+ feeds now fetch concurrently using `ThreadPoolExecutor(max_workers=20)`, preserving feed order for deterministic deduplication. This dropped worst-case execution time from ~750s to ~25s.
+* **Expanded arXiv Feeds:** Increased feeds from 3 to 9 by adding `cs.CL`, `cs.CV`, `cs.NE`, `cs.RO`, `cs.IR`, and `eess.SP`.
+* **Added `ARXIV_ONLY_FEEDS` Constant:** Bypasses default and user-configured feeds entirely when the `ai_research_arxiv` category is selected.
+* **Added `_sort_arxiv_first()`:** Prioritizes arXiv entries to the top (sorted by date) for research categories, preventing papers from getting buried under general tech news.
+* **Hard URL Filter:** Implemented a final backstop filter for `ai_research_arxiv` that removes any non-arxiv.org entries before evaluation.
+* **Removed Pool Cap:** Deleted the hardcoded `min(max_results * 2, 30)` cap. `max_results` is now passed directly to the collector, giving users full control.
+* **Updated Category Keywords:** Expanded `ai_trends` with adoption signals, rewrote `ai_innovations` around capability and model releases to avoid research overlap, emptied `ai_research_arxiv` (handled by URL filtering), and removed deprecated categories.
+
+### **New Files: HTML Formatting & Templating**
+* **`formatter.py` (New):** Renders newsletter cards as a self-contained HTML string via a Jinja2 template. Converts all images to base64 and accepts the optional `digest_headline` for the masthead.
+* **`ai_digest/templates/newsletter_card.html` (New):** An email-safe Jinja2 template featuring a table-based layout (no flexbox to bypass Gmail/Outlook stripping). Design includes white cards, an orange top-border accent (`#e85d04`), an orange masthead banner with the generated teaser, responsive stacking, and a pilot feedback footer linking to a Microsoft Forms survey.
+
+### **`storage.py`, `config.py` & `run_pipeline.py`**
+* **`storage.py`:** Added `save_newsletter_html()` to save the rendered HTML to the `output/` directory.
+* **`config.py`:** Updated default categories to match the new consolidated list (`ai_trends`, `genai_tips`, `ai_innovations`, `ai_research`, `ai_research_arxiv`).
+* **`run_pipeline.py`:** Added the `--max-pool` argument to both `collect` and `collect-and-compose` subcommands. Updated the help text for the `--category` argument to include `ai_research_arxiv`.
+
+---
+
+## **Recommendations & Future Work**
+
+### **Technical Findings & Optimization Goals**
+* **Category Refinement Parity:** While the `ai_research` and `ai_research_arxiv` categories have seen substantial performance upgrades in this iteration, future development should prioritize bringing `ai_trends`, `genai_tips`, and `ai_innovations` up to the same standard of search precision and content quality.
+* **Deduplication Improvements:** The current deduplication logic occasionally allows similar stories to slip through, which is most noticeable in the `ai_innovations` category. While temporarily mitigated by increasing the `--max-results` parameter to broaden the pool, refining the deduplication function's algorithms (entity overlap and text similarity thresholds) is a high-priority technical objective.
+
+### **Team Recommendations & User Experience**
+* **Graphical User Interface (GUI) Development:** Transition from the current CLI and `.env` configuration model to a dedicated front-end UI. This will streamline daily operations and make the tool accessible to operators who are less comfortable with command-line interfaces.
+* **Cross-Functional Feedback Integration:** Expand pilot distribution to other departments and working groups across the bank. Gathering diverse perspectives will ensure the digest aligns with broader organizational needs and varied use cases.
+* **Non-Technical Summaries ("Layman" Mode):** Introduce a processing layer or dedicated section that provides jargon-free, simplified article summaries. This will significantly improve readability and comprehension for non-technical stakeholders consuming the digest.
