@@ -125,6 +125,30 @@ CATEGORY_KEYWORDS = {
         "guide", "how to", "best practice", "practical", "hands-on", "walkthrough",
         "implementation", "API", "SDK",
     ],
+    "ai_capability": [
+        # Knowledge & search
+        "knowledge assist", "knowledge management", "search", "enterprise search", "semantic search",
+        "question answering", "chatbot", "virtual assistant", "copilot", "AI assistant",
+        # Voice & speech
+        "voice AI", "speech recognition", "text-to-speech", "speech synthesis", "voice agent",
+        "voice assistant", "conversational AI", "natural language understanding", "ASR", "TTS",
+        # Document & data processing
+        "intelligent document processing", "IDP", "document understanding", "OCR",
+        "document extraction", "data extraction", "form processing", "invoice processing",
+        "contract analysis", "document AI",
+        # Image & video generation
+        "image generation", "video generation", "text-to-image", "text-to-video",
+        "image editing", "video editing", "deepfake", "visual AI", "computer vision",
+        "image recognition", "object detection", "image segmentation",
+        # Code generation
+        "code generation", "code completion", "code assistant", "coding AI", "AI coding",
+        "program synthesis", "automated programming",
+        # Other capabilities
+        "translation", "summarization", "content generation", "text generation",
+        "recommendation", "personalization", "predictive", "forecasting",
+        "anomaly detection", "fraud detection", "automation", "RPA",
+        "robotics", "autonomous", "self-driving", "AI agent", "agentic",
+    ],
 }
 
 

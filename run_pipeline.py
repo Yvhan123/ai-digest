@@ -234,7 +234,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         "--category",
         type=str,
         required=True,
-        help="Category to collect and generate newsletter for (e.g., 'ai_trends', 'genai_tips', 'ai_research_arxiv').",
+        help="Category to collect and generate newsletter for (e.g., 'ai_trends', 'genai_tips', 'ai_research_arxiv', 'ai_capability').",
     )
     collect_compose_parser.add_argument(
         "--audience",

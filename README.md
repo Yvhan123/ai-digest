@@ -49,7 +49,7 @@ Set these (e.g. in your shell or a `.env` file in the project root):
 | `OPENAI_API_KEY` | Yes | OpenAI-compatible API key |
 | `TAVILY_API_KEY` | When `AI_DIGEST_COLLECTOR=tavily` or `both` | Tavily search API key |
 | `OPENAI_MODEL` | No | Model name (default: `gpt-4.1-mini`) |
-| `AI_DIGEST_CATEGORIES` | No | Comma-separated categories (default: `ai_trends`, `genai_tips`, `ai_innovations`, `ai_research`, `ai_research_arxiv`) |
+| `AI_DIGEST_CATEGORIES` | No | Comma-separated categories (default: `ai_trends`, `genai_tips`, `ai_innovations`, `ai_research`, `ai_research_arxiv`, `ai_capability`) |
 | `AI_DIGEST_COLLECTOR` | No | `tavily` (default), `deep`, or `both` – article collection backend |
 | `AI_DIGEST_DEEP_FEEDS` | No | Comma-separated RSS/Atom feed URLs for deep research; if empty, built-in AI feeds are used |
 
@@ -63,7 +63,7 @@ Example `.env` (Tavily):
 OPENAI_API_KEY=your-openai-key
 TAVILY_API_KEY=your-tavily-key
 OPENAI_MODEL=gpt-4.1-mini
-AI_DIGEST_CATEGORIES=ai_trends,genai_tips,ai_innovations,ai_research,ai_research_arxiv
+AI_DIGEST_CATEGORIES=ai_trends,genai_tips,ai_innovations,ai_research,ai_research_arxiv,ai_capability
 ```
 
 Example `.env` (Deep Research):
@@ -82,7 +82,7 @@ Example `.env` (Both Tavily + Deep Research):
 OPENAI_API_KEY=your-openai-key
 TAVILY_API_KEY=your-tavily-key
 AI_DIGEST_COLLECTOR=both
-AI_DIGEST_CATEGORIES=ai_trends,ai_innovations,ai_research
+AI_DIGEST_CATEGORIES=ai_trends,ai_innovations,ai_research,ai_capability
 ```
 
 ---
@@ -110,7 +110,7 @@ Create a `.env` file in the project root (or export variables in your shell).
 OPENAI_API_KEY=your-openai-key
 TAVILY_API_KEY=your-tavily-key
 OPENAI_MODEL=gpt-4.1-mini
-AI_DIGEST_CATEGORIES=ai_trends,genai_tips,ai_innovations,ai_research,ai_research_arxiv
+AI_DIGEST_CATEGORIES=ai_trends,genai_tips,ai_innovations,ai_research,ai_research_arxiv,ai_capability
 ```
 
 **Option B – Deep Research (RSS/feeds, no Tavily key):**
@@ -275,7 +275,7 @@ python run_pipeline.py collect-and-compose --category CATEGORY --audience "..." 
 
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
-| `--category` | Yes | — | Category to collect and draft (e.g. `ai_trends`, `ai_innovations`, `ai_research`, `ai_research_arxiv`) |
+| `--category` | Yes | — | Category to collect and draft (e.g. `ai_trends`, `ai_innovations`, `ai_research`, `ai_research_arxiv`, `ai_capability`) |
 | `--audience` | Yes | — | Audience (e.g. `"AI team at UnionBank"`) |
 | `--tone` | Yes | — | Tone (e.g. `"professional, concise, optimistic"`) |
 | `--max-results N` | No | `6` | Max articles to collect for the category |
@@ -337,11 +337,20 @@ python run_pipeline.py collect-and-compose \
   --max-results 12 \
   --sections 3 \
   --format card
+
+# AI Capability (knowledge assist, voice AI, intelligent document processing, video/image generation, etc.)
+python run_pipeline.py collect-and-compose \
+  --category "ai_capability" \
+  --audience "AI Center of Excellence Team" \
+  --tone "professional, concise, optimistic" \
+  --max-results 10 \
+  --sections 3 \
+  --format card
 ```
 
 **Result:** The draft is printed to the terminal and saved as `output/newsletter_<category>_<run_id>.md` and `output/newsletter_<category>_<run_id>.html`. Logs are written to `logs/`.
 
-**Categories:** `ai_trends`, `genai_tips`, `ai_innovations`, `ai_research`, `ai_research_arxiv`.
+**Categories:** `ai_trends`, `genai_tips`, `ai_innovations`, `ai_research`, `ai_research_arxiv`, `ai_capability`.
 
 > **Note:** `ai_technology`, `tools_updates`, and `policy_ethics` have been removed. `ai_technology` content is now covered by `ai_innovations`; `tools_updates` content is now covered by `ai_trends`.
 

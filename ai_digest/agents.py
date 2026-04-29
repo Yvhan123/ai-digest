@@ -99,6 +99,17 @@ def collect_articles_for_category(
             "company earnings, or one-off announcements without a broader trend angle. "
             "Prioritize stories from analysts, industry publications, and business press."
         )
+    elif category == "ai_capability":
+        query = (
+            "AI capabilities and what AI can do now in the last 7 days. "
+            "Include: knowledge assist and enterprise search powered by AI, voice AI and speech "
+            "recognition advances, intelligent document processing and OCR, image and video "
+            "generation (text-to-image, text-to-video), code generation and AI coding assistants, "
+            "AI-powered translation and summarization, recommendation systems, predictive analytics, "
+            "autonomous agents and robotics, and any new demonstration of what AI systems can accomplish. "
+            "Focus on concrete capabilities — what the AI can DO — not market trends or research theory. "
+            "Exclude: pure research papers, market analysis without capability details, opinion pieces."
+        )
     else:
         query = (
             f"Latest important, non-duplicate news and resources in the last 7 days about "
@@ -132,6 +143,12 @@ def collect_articles_for_category(
         search_params = {
             "search_depth": "basic",
             "topic": "news",  # news topic surfaces recent widely-covered stories over evergreen content
+            "exclude_domains": ["arxiv.org"],
+        }
+    elif category == "ai_capability":
+        search_params = {
+            "search_depth": "basic",
+            "topic": "general",  # general topic catches both news and capability showcases
             "exclude_domains": ["arxiv.org"],
         }
     else:
@@ -248,6 +265,22 @@ def evaluate_article(
             "REJECT anything that is not an arXiv preprint — no blog posts, no news articles, "
             "no company announcements, no paperswithcode pages, no conference proceedings pages. "
             "The URL must contain 'arxiv.org'. If the URL is not from arxiv.org, reject immediately."
+        )
+    elif article.category == "ai_capability":
+        category_guidance = (
+            " For category ai_capability: accept content that demonstrates or discusses what AI "
+            "systems can DO — concrete capabilities, not just announcements. "
+            "Strong accepts: knowledge assist and enterprise AI search, voice AI and speech "
+            "recognition advances, intelligent document processing and OCR, image and video "
+            "generation (text-to-image, text-to-video, editing), code generation and AI coding "
+            "assistants, AI-powered translation and summarisation, recommendation engines, "
+            "predictive analytics, autonomous agents and robotics, and real-world demonstrations "
+            "of AI capability. "
+            "Score 4-5 for articles showing concrete capability with demos, benchmarks, or real "
+            "deployments. Score 3 for solid capability coverage without concrete evidence. "
+            "REJECT: pure market trends without capability detail (use ai_trends), research "
+            "papers without a capability angle (use ai_research), tips and tutorials without "
+            "a capability showcase (use genai_tips), and opinion pieces with no substance."
         )
     system_prompt = textwrap.dedent(
         f"""

@@ -46,7 +46,7 @@ def get_settings() -> Settings:
 
     raw_categories = os.getenv(
         "AI_DIGEST_CATEGORIES",
-        "ai_trends,genai_tips,ai_innovations,ai_research,ai_research_arxiv",
+        "ai_trends,genai_tips,ai_innovations,ai_research,ai_research_arxiv,ai_capability",
     )
     default_categories = [c.strip() for c in raw_categories.split(",") if c.strip()]
 
